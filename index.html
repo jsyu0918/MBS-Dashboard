@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>모기지 담보부 증권(MBS)</title>
+    
+    <!-- Include Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#5D5CDE",
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .dashboard-card {
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            transition: transform 0.2s;
+        }
+        
+        .dark .dashboard-card {
+            background-color: #1f2937;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #5D5CDE;
+            cursor: pointer;
+        }
+        
+        .dark input[type="range"] {
+            background: #4b5563;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 240px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .tab {
+            cursor: pointer;
+            padding: 10px 15px;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab.active {
+            border-bottom: 2px solid #5D5CDE;
+            font-weight: 600;
+        }
+        
+        .dark .tab.active {
+            border-bottom: 2px solid #818cf8;
+        }
+        
+        .cash-flow-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .cash-flow-table th, 
+        .cash-flow-table td {
+            padding: 8px;
+            text-align: right;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .dark .cash-flow-table th,
+        .dark .cash-flow-table td {
+            border-bottom: 1px solid #374151;
+        }
+        
+        .cash-flow-table th {
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .cash-flow-table tr:hover {
+            background-color: #f9fafb;
+        }
+        
+        .dark .cash-flow-table tr:hover {
+            background-color: #1f2937;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 dark:text-white">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">모기지 담보부 증권(MBS)</h1>
+            <p class="text-gray-600 dark:text-gray-300 mt-2">
+                MBS의 구조, 가치평가 및 위험
+            </p>
+        </header>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Input Controls Panel -->
+            <div class="dashboard-card p-6 col-span-1">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">입력 변수</h2>
+                
+                <div class="space-y-4">
+                    <!-- Mortgage Pool Size -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            모기지 풀 규모(Mortgage Pool Size)
+                            <span class="tooltip ml-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="tooltip-text">모기지 풀의 총 가치(달러 단위)</span>
+                            </span>
+                        </label>
+                        <div class="flex items-center">
+                            <span class="text-gray-500 mr-2">$</span>
+                            <input id="pool-size" type="number" min="1000000" max="500000000" step="1000000" value="100000000" 
+                                   class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <span class="text-gray-500 ml-2" id="pool-size-formatted">$100M</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Mortgage Term -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            모기지 기간(Mortgage Term)
+                        </label>
+                        <select id="mortgage-term" class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-base">
+                            <option value="15">15년</option>
+                            <option value="30" selected>30년</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Mortgage Coupon Rate -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            모기지 쿠폰 금리(Coupon Rate)
+                            <span class="tooltip ml-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="tooltip-text">풀 내 모기지에 부과되는 연간 이자율</span>
+                            </span>
+                        </label>
+                        <div class="flex items-center space-x-2">
+                            <input id="coupon-rate" type="range" min="1" max="10" step="0.25" value="5.5" class="w-full">
+                            <span id="coupon-rate-value" class="text-gray-700 dark:text-gray-300 w-12 text-right">5.5%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Market Interest Rate -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            시장 이자율(Market Rate)
+                            <span class="tooltip ml-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="tooltip-text">유사한 위험도의 증권에 대한 현재 시장 이자율</span>
+                            </span>
+                        </label>
+                        <div class="flex items-center space-x-2">
+                            <input id="market-rate" type="range" min="1" max="10" step="0.25" value="5" class="w-full">
+                            <span id="market-rate-value" class="text-gray-700 dark:text-gray-300 w-12 text-right">5.0%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- PSA Speed -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            PSA 조기상환 속도
+                            <span class="tooltip ml-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="tooltip-text">PSA(Public Securities Assocation) 조기상환 속도 모델. 100% PSA는 표준 모델</span>
+                            </span>
+                        </label>
+                        <div class="flex items-center space-x-2">
+                            <input id="psa-speed" type="range" min="0" max="300" step="25" value="100" class="w-full">
+                            <span id="psa-speed-value" class="text-gray-700 dark:text-gray-300 w-12 text-right">100%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Tranche Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            트랜치 선택(Tranche)
+                            <span class="tooltip ml-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="tooltip-text">상세 정보를 볼 CMO 트랜치 선택</span>
+                            </span>
+                        </label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button id="tranche-a" class="text-center py-2 bg-primary text-white rounded-md font-medium text-sm active-tranche dark:bg-primary dark:text-white">A</button>
+                            <button id="tranche-b" class="text-center py-2 bg-gray-100 text-gray-700 rounded-md font-medium text-sm dark:bg-gray-800 dark:text-gray-300">B</button>
+                            <button id="tranche-c" class="text-center py-2 bg-gray-100 text-gray-700 rounded-md font-medium text-sm dark:bg-gray-800 dark:text-gray-300">C</button>
+                            <button id="tranche-z" class="text-center py-2 bg-gray-100 text-gray-700 rounded-md font-medium text-sm dark:bg-gray-800 dark:text-gray-300">Z</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Calculate Button -->
+                    <div class="pt-2">
+                        <button id="calculate-btn" class="w-full bg-primary hover:bg-opacity-90 text-white font-medium py-2 px-4 rounded-md shadow transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
+                            재계산
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MBS Structure Visualization -->
+            <div class="dashboard-card p-6 col-span-1 md:col-span-2">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">MBS 구조 개요</h2>
+                
+                <div id="mbs-structure" class="h-80 relative">
+                    <!-- MBS Structure diagram rendered by JavaScript -->
+                </div>
+                
+                <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                    <p>위 다이어그램은 다중 트랜치를 가진 CMO의 기본 구조를 보여주며, 대출자로부터 모기지 상환금이 흘러와 워터폴 구조에 따라 각 트랜치로 분배됨</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabs for different views -->
+        <div class="dashboard-card mt-6 p-6">
+            <div class="flex border-b border-gray-200 dark:border-gray-700 mb-4 overflow-x-auto">
+                <div id="tab-cash-flows" class="tab active text-gray-800 dark:text-white">현금흐름</div>
+                <div id="tab-valuation" class="tab text-gray-600 dark:text-gray-400">채권 가치평가</div>
+                <div id="tab-prepayment" class="tab text-gray-600 dark:text-gray-400">조기상환 모델</div>
+                <div id="tab-tranches" class="tab text-gray-600 dark:text-gray-400">트랜치 구조</div>
+            </div>
+            
+            <!-- Cash Flows Tab Content -->
+            <div id="content-cash-flows" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="col-span-1">
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">현금흐름 요약</h3>
+                        <div id="cash-flow-summary" class="space-y-3">
+                            <!-- Cash flow summary stats -->
+                            <div class="flex justify-between items-center border-b pb-2 border-gray-200 dark:border-gray-700">
+                                <span class="text-gray-600 dark:text-gray-400">총 원금(Principal)</span>
+                                <span class="font-medium text-gray-800 dark:text-white" id="total-principal">$100,000,000</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b pb-2 border-gray-200 dark:border-gray-700">
+                                <span class="text-gray-600 dark:text-gray-400">총 이자(Interest)</span>
+                                <span class="font-medium text-gray-800 dark:text-white" id="total-interest">$93,255,420</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b pb-2 border-gray-200 dark:border-gray-700">
+                                <span class="text-gray-600 dark:text-gray-400">평균 수명(Avg. Life)</span>
+                                <span class="font-medium text-gray-800 dark:text-white" id="avg-life">12.7년</span>
+                            </div>
+                            <div class="flex justify-between items-center border-b pb-2 border-gray-200 dark:border-gray-700">
+                                <span class="text-gray-600 dark:text-gray-400">듀레이션(Duration)</span>
+                                <span class="font-medium text-gray-800 dark:text-white" id="duration">7.2년</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600 dark:text-gray-400">현재가치(Present Value)</span>
+                                <span class="font-medium text-gray-800 dark:text-white" id="present-value">$105,820,650</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-span-1 md:col-span-2">
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">현금흐름 예측</h3>
+                        <div class="chart-container">
+                            <canvas id="cash-flow-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">현금흐름 표</h3>
+                    <div class="overflow-x-auto">
+                        <table class="cash-flow-table">
+                            <thead>
+                                <tr>
+                                    <th>연도</th>
+                                    <th>원금</th>
+                                    <th>이자</th>
+                                    <th>예정 지급액</th>
+                                    <th>조기상환</th>
+                                    <th>잔액</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cash-flow-table-body">
+                                <!-- Cash flow table rows will be inserted by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bond Valuation Tab Content -->
+            <div id="content-valuation" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">채권 가격 vs. 이자율</h3>
+                        <div class="chart-container">
+                            <canvas id="bond-price-chart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>이 그래프는 시장 이자율과 채권 가격 간의 관계를 보여주며, 이자율이 상승하면 채권 가격은 일반적으로 하락하여 역관계를 나타냄</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">옵션 조정 스프레드(OAS)</h3>
+                        <div class="chart-container">
+                            <canvas id="oas-chart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>옵션 조정 스프레드는 MBS에 내장된 조기상환 옵션을 조정한 후 국채 수익률 곡선 대비 스프레드를 측정</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">가치평가 지표</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="dashboard-card p-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">채권 가격(Bond Price)</div>
+                            <div class="text-2xl font-bold text-gray-800 dark:text-white mt-1" id="bond-price">$105.82</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-500">액면가 $100당</div>
+                        </div>
+                        
+                        <div class="dashboard-card p-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">만기수익률(YTM)</div>
+                            <div class="text-2xl font-bold text-gray-800 dark:text-white mt-1" id="ytm">5.23%</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-500">연율</div>
+                        </div>
+                        
+                        <div class="dashboard-card p-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">가격 민감도(Sensitivity)</div>
+                            <div class="text-2xl font-bold text-gray-800 dark:text-white mt-1" id="convexity">-2.35</div>
+                            <div class="text-sm text-gray-500 dark:text-gray-500">100bp 변화당</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Prepayment Model Tab Content -->
+            <div id="content-prepayment" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">PSA 조기상환 곡선</h3>
+                        <div class="chart-container">
+                            <canvas id="psa-curve-chart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>PSA 모델은 조기상환이 0.2% CPR에서 시작하여 30개월까지 매월 0.2%p씩 증가한 후 100% PSA에서는 6% CPR로 유지되는 것을 가정. 더 높은 PSA 백분율은 이 곡선을 비례적으로 확대</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">누적 조기상환</h3>
+                        <div class="chart-container">
+                            <canvas id="cumulative-prepayment-chart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>이 그래프는 다양한 PSA 가정 하에 시간이 지남에 따라 조기상환된 원래 풀의 누적 백분율을 보여줌</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">조기상환 요인</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-medium text-gray-800 dark:text-white mb-2">재융자 인센티브</h4>
+                            <div class="chart-container h-48">
+                                <canvas id="refinancing-incentive-chart"></canvas>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                <p>시장 금리와 재융자 인센티브 간의 관계를 보여주며, 이는 조기상환 행동에 영향을 미침</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-gray-800 dark:text-white mb-2">계절적 요인</h4>
+                            <div class="chart-container h-48">
+                                <canvas id="seasonal-factors-chart"></canvas>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                <p>여름철에 조기상환이 증가하는 등 계절에 따라 조기상환 속도가 어떻게 달라지는지 보여줌</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tranche Structure Tab Content -->
+            <div id="content-tranches" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">CMO 워터폴 구조</h3>
+                        <div id="waterfall-diagram" class="h-80 relative">
+                            <!-- Waterfall diagram rendered by JavaScript -->
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>워터폴 다이어그램은 현금흐름이 순차적으로 다양한 트랜치에 분배되는 방식을 보여줌</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">트랜치별 현금흐름</h3>
+                        <div class="chart-container">
+                            <canvas id="tranche-cash-flow-chart"></canvas>
+                        </div>
+                        <div class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                            <p>이 그래프는 현재 PSA 시나리오에서 시간 경과에 따라 각 트랜치에 현금흐름이 어떻게 분배되는지 보여줌</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-800 dark:text-white mb-4">트랜치 특성</h3>
+                    <div class="overflow-x-auto">
+                        <table class="cash-flow-table">
+                            <thead>
+                                <tr>
+                                    <th>트랜치</th>
+                                    <th>규모</th>
+                                    <th>쿠폰</th>
+                                    <th>평균수명</th>
+                                    <th>듀레이션</th>
+                                    <th>가격</th>
+                                    <th>수익률</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tranche-table-body">
+                                <!-- Tranche data will be inserted by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Educational Info Panel -->
+        <div class="dashboard-card mt-6 p-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800 dark:text-white">MBS 가치평가</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div class="text-gray-700 dark:text-gray-300 space-y-2">
+                        <p><strong>1. 현금흐름 예측(Cash Flow Projection):</strong> MBS 현금흐름은 예정된 상환금과 조기상환에 따라 변동</p>
+                        <p><strong>2. 조기상환 모델링(Prepayment Modeling):</strong> PSA 모델을 사용하여 대출자가 얼마나 빨리 모기지를 조기상환할지 예측</p>
+                        <p><strong>3. 할인율 결정(Discount Rate):</strong> 시장 이자율에 조기상환 위험에 대한 스프레드를 더하여 결정</p>
+                        <p><strong>4. 현재가치 계산(Present Value):</strong> 예측된 현금흐름을 할인하여 현재 가치를 계산</p>
+                        <p><strong>5. 트랜치 분석(Tranche Analysis):</strong> CMO에서는 현금흐름이 서로 다른 위험-수익 구조를 가진 트랜치로 구분</p>
+                    </div>
+                </div>
+                <div>
+                    <div class="text-gray-700 dark:text-gray-300 space-y-2">
+                        <p><strong>주요 위험 요소:</strong></p>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><strong>조기상환 위험(Prepayment Risk):</strong> 대출자가 예상보다 빠르거나 느리게 조기상환할 수 있음</li>
+                            <li><strong>연장 위험(Extension Risk):</strong> 이자율이 상승하면 조기상환이 느려져 증권의 수명(duration)이 연장</li>
+                            <li><strong>단축 위험(Contraction Risk):</strong> 이자율이 하락하면 조기상환이 증가하여 증권의 수명(duration)이 단축</li>
+                            <li><strong>이자율 위험(Interest Rate Risk):</strong> 이자율 변화는 조기상환 행동과 할인율 모두에 영향을 미침</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode support
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            // Redraw all charts with correct colors
+            updateCharts();
+        });
+        
+        // Helper functions
+        function formatCurrency(value) {
+            if (value >= 1000000) {
+                return '$' + (value / 1000000).toFixed(2) + 'M';
+            } else if (value >= 1000) {
+                return '$' + (value / 1000).toFixed(2) + 'K';
+            }
+            return '$' + value.toFixed(2);
+        }
+        
+        function formatPercent(value) {
+            return value.toFixed(2) + '%';
+        }
+        
+        // Input event listeners
+        document.getElementById('pool-size').addEventListener('input', function() {
+            let value = parseInt(this.value);
+            document.getElementById('pool-size-formatted').textContent = formatCurrency(value);
+        });
+        
+        document.getElementById('coupon-rate').addEventListener('input', function() {
+            let value = parseFloat(this.value);
+            document.getElementById('coupon-rate-value').textContent = formatPercent(value);
+        });
+        
+        document.getElementById('market-rate').addEventListener('input', function() {
+            let value = parseFloat(this.value);
+            document.getElementById('market-rate-value').textContent = formatPercent(value);
+        });
+        
+        document.getElementById('psa-speed').addEventListener('input', function() {
+            let value = parseInt(this.value);
+            document.getElementById('psa-speed-value').textContent = value + '%';
+        });
+        
+        // Tranche buttons
+        const trancheButtons = ['tranche-a', 'tranche-b', 'tranche-c', 'tranche-z'];
+        trancheButtons.forEach(id => {
+            document.getElementById(id).addEventListener('click', function() {
+                // Reset all buttons
+                trancheButtons.forEach(btnId => {
+                    const btn = document.getElementById(btnId);
+                    btn.classList.remove('bg-primary', 'text-white');
+                    btn.classList.add('bg-gray-100', 'text-gray-700', 'dark:bg-gray-800', 'dark:text-gray-300');
+                });
+                
+                // Highlight the selected button
+                this.classList.remove('bg-gray-100', 'text-gray-700', 'dark:bg-gray-800', 'dark:text-gray-300');
+                this.classList.add('bg-primary', 'text-white');
+                
+                // Update tranche-specific information
+                updateTrancheView(id.split('-')[1].toUpperCase());
+            });
+        });
+        
+        // Tab functionality
+        const tabs = ['tab-cash-flows', 'tab-valuation', 'tab-prepayment', 'tab-tranches'];
+        const tabContents = ['content-cash-flows', 'content-valuation', 'content-prepayment', 'content-tranches'];
+        
+        tabs.forEach((tabId, index) => {
+            document.getElementById(tabId).addEventListener('click', function() {
+                // Hide all tab contents
+                tabContents.forEach(contentId => {
+                    document.getElementById(contentId).classList.add('hidden');
+                });
+                
+                // Deactivate all tabs
+                tabs.forEach(id => {
+                    document.getElementById(id).classList.remove('active');
+                    document.getElementById(id).classList.add('text-gray-600', 'dark:text-gray-400');
+                    document.getElementById(id).classList.remove('text-gray-800', 'dark:text-white');
+                });
+                
+                // Activate the selected tab
+                this.classList.add('active');
+                this.classList.remove('text-gray-600', 'dark:text-gray-400');
+                this.classList.add('text-gray-800', 'dark:text-white');
+                
+                // Show the corresponding content
+                document.getElementById(tabContents[index]).classList.remove('hidden');
+                
+                // Ensure charts are properly rendered in the newly visible tab
+                window.setTimeout(() => updateCharts(), 50);
+            });
+        });
+        
+        // Recalculate button
+        document.getElementById('calculate-btn').addEventListener('click', function() {
+            calculateAll();
+            updateCharts();
+            updateTables();
+        });
+        
+        // =====================
+        // MBS Model Calculations
+        // =====================
+        
+        // Model parameters
+        let poolSize = 100000000;
+        let mortgageTerm = 30;
+        let couponRate = 5.5;
+        let marketRate = 5.0;
+        let psaSpeed = 100;
+        let selectedTranche = 'A';
+        
+        // Tranche structure with distinct colors for better visual differentiation
+        const tranches = {
+            A: { size: 50000000, coupon: 5.25, color: 'rgba(99, 102, 241, 0.8)' },   // Indigo
+            B: { size: 25000000, coupon: 5.5, color: 'rgba(14, 165, 233, 0.8)' },    // Sky Blue
+            C: { size: 15000000, coupon: 5.75, color: 'rgba(16, 185, 129, 0.8)' },   // Emerald
+            Z: { size: 10000000, coupon: 6.0, color: 'rgba(245, 158, 11, 0.8)' }     // Amber
+        };
+        
+        // Calculate monthly payment for a fixed-rate mortgage
+        function calculateMonthlyPayment(principal, annualRate, termYears) {
+            const monthlyRate = annualRate / 100 / 12;
+            const numPayments = termYears * 12;
+            
+            if (monthlyRate === 0) {
+                return principal / numPayments;
+            }
+            
+            return principal * monthlyRate * Math.pow(1 + monthlyRate, numPayments) / (Math.pow(1 + monthlyRate, numPayments) - 1);
+        }
+        
+        // Calculate PSA prepayment rate for a given month
+        function calculatePSARate(month, psaPercentage) {
+            // Standard PSA model: 0.2% CPR increasing by 0.2% per month until month 30
+            const standardPSA = month <= 30 ? month * 0.2 : 6.0;
+            return (standardPSA * psaPercentage / 100) / 100; // Convert to decimal
+        }
+        
+        // Convert annual CPR to monthly SMM (Single Monthly Mortality)
+        function cprToSmm(cpr) {
+            return 1 - Math.pow(1 - cpr, 1/12);
+        }
+        
+        // Calculate cash flows for the mortgage pool
+        function calculateMortgagePoolCashFlows() {
+            const monthlyPayment = calculateMonthlyPayment(poolSize, couponRate, mortgageTerm);
+            const numMonths = mortgageTerm * 12;
+            let remainingBalance = poolSize;
+            const cashFlows = [];
+            
+            for (let month = 1; month <= numMonths; month++) {
+                const monthlyRate = couponRate / 100 / 12;
+                const interest = remainingBalance * monthlyRate;
+                const scheduledPrincipal = monthlyPayment - interest;
+                
+                // Calculate prepayment based on PSA model
+                const psaRate = calculatePSARate(month, psaSpeed);
+                const smm = cprToSmm(psaRate);
+                const prepayment = (remainingBalance - scheduledPrincipal) * smm;
+                
+                const totalPrincipal = scheduledPrincipal + prepayment;
+                remainingBalance -= totalPrincipal;
+                
+                // Handle final payment rounding
+                if (month === numMonths) {
+                    const finalPrincipal = remainingBalance;
+                    remainingBalance = 0;
+                }
+                
+                // Group by year for the UI (to reduce data points)
+                const year = Math.ceil(month / 12);
+                
+                if (month % 12 === 1 || month === 1) {
+                    cashFlows.push({
+                        period: year,
+                        scheduledPrincipal: scheduledPrincipal,
+                        interest: interest,
+                        prepayment: prepayment,
+                        totalPrincipal: scheduledPrincipal + prepayment,
+                        totalPayment: scheduledPrincipal + interest + prepayment,
+                        remainingBalance: remainingBalance
+                    });
+                } else {
+                    const lastIndex = cashFlows.length - 1;
+                    cashFlows[lastIndex].scheduledPrincipal += scheduledPrincipal;
+                    cashFlows[lastIndex].interest += interest;
+                    cashFlows[lastIndex].prepayment += prepayment;
+                    cashFlows[lastIndex].totalPrincipal += (scheduledPrincipal + prepayment);
+                    cashFlows[lastIndex].totalPayment += (scheduledPrincipal + interest + prepayment);
+                    cashFlows[lastIndex].remainingBalance = remainingBalance;
+                }
+            }
+            
+            return cashFlows;
+        }
+        
+        // Calculate tranche cash flows
+        function calculateTrancheCashFlows(mortgageCashFlows) {
+            const trancheCashFlows = {
+                A: [],
+                B: [],
+                C: [],
+                Z: []
+            };
+            
+            // Initialize tracking variables
+            let trancheARemaining = tranches.A.size;
+            let trancheBRemaining = tranches.B.size;
+            let trancheCRemaining = tranches.C.size;
+            let trancheZRemaining = tranches.Z.size;
+            let trancheZAccruedInterest = 0;
+            
+            // Process each period's cash flows
+            mortgageCashFlows.forEach((periodCashFlow, index) => {
+                const period = periodCashFlow.period;
+                let remainingPrincipal = periodCashFlow.totalPrincipal;
+                
+                // Calculate interest for each tranche
+                const interestA = trancheARemaining * (tranches.A.coupon / 100);
+                const interestB = trancheBRemaining * (tranches.B.coupon / 100);
+                const interestC = trancheCRemaining * (tranches.C.coupon / 100);
+                const interestZ = trancheZRemaining * (tranches.Z.coupon / 100);
+                
+                // Z tranche accrues interest until senior tranches are paid off
+                trancheZAccruedInterest += interestZ;
+                
+                // Distribute principal according to waterfall
+                let principalA = 0;
+                let principalB = 0;
+                let principalC = 0;
+                let principalZ = 0;
+                
+                // Tranche A gets principal first
+                if (trancheARemaining > 0) {
+                    principalA = Math.min(remainingPrincipal, trancheARemaining);
+                    remainingPrincipal -= principalA;
+                    trancheARemaining -= principalA;
+                }
+                
+                // Tranche B gets principal next
+                if (trancheARemaining === 0 && trancheBRemaining > 0) {
+                    principalB = Math.min(remainingPrincipal, trancheBRemaining);
+                    remainingPrincipal -= principalB;
+                    trancheBRemaining -= principalB;
+                }
+                
+                // Tranche C gets principal next
+                if (trancheARemaining === 0 && trancheBRemaining === 0 && trancheCRemaining > 0) {
+                    principalC = Math.min(remainingPrincipal, trancheCRemaining);
+                    remainingPrincipal -= principalC;
+                    trancheCRemaining -= principalC;
+                }
+                
+                // Tranche Z gets principal last, including accrued interest
+                if (trancheARemaining === 0 && trancheBRemaining === 0 && trancheCRemaining === 0) {
+                    const zTotalDue = trancheZRemaining + trancheZAccruedInterest;
+                    principalZ = Math.min(remainingPrincipal, zTotalDue);
+                    
+                    // First pay off accrued interest, then principal
+                    if (principalZ <= trancheZAccruedInterest) {
+                        trancheZAccruedInterest -= principalZ;
+                    } else {
+                        const excessPrincipal = principalZ - trancheZAccruedInterest;
+                        trancheZAccruedInterest = 0;
+                        trancheZRemaining -= excessPrincipal;
+                    }
+                    
+                    remainingPrincipal -= principalZ;
+                }
+                
+                // Record cash flows for each tranche
+                trancheCashFlows.A.push({
+                    period: period,
+                    interest: interestA,
+                    principal: principalA,
+                    totalPayment: interestA + principalA,
+                    remainingBalance: trancheARemaining
+                });
+                
+                trancheCashFlows.B.push({
+                    period: period,
+                    interest: interestB,
+                    principal: principalB,
+                    totalPayment: interestB + principalB,
+                    remainingBalance: trancheBRemaining
+                });
+                
+                trancheCashFlows.C.push({
+                    period: period,
+                    interest: interestC,
+                    principal: principalC,
+                    totalPayment: interestC + principalC,
+                    remainingBalance: trancheCRemaining
+                });
+                
+                // Z tranche doesn't receive interest payments until other tranches are paid off
+                const zPayment = trancheARemaining === 0 && trancheBRemaining === 0 && trancheCRemaining === 0 
+                               ? interestZ + principalZ : principalZ;
+                
+                trancheCashFlows.Z.push({
+                    period: period,
+                    interest: interestZ, // This is accrued, not paid
+                    principal: principalZ,
+                    totalPayment: zPayment,
+                    remainingBalance: trancheZRemaining,
+                    accruedInterest: trancheZAccruedInterest
+                });
+            });
+            
+            return trancheCashFlows;
+        }
+        
+        // Calculate present value of cash flows
+        function calculatePresentValue(cashFlows, discountRate) {
+            const annualRate = discountRate / 100;
+            let pv = 0;
+            
+            cashFlows.forEach(cf => {
+                const discountFactor = Math.pow(1 + annualRate, -cf.period);
+                pv += cf.totalPayment * discountFactor;
+            });
+            
+            return pv;
+        }
+        
+        // Calculate bond metrics
+        function calculateBondMetrics(cashFlows, rate) {
+            const pv = calculatePresentValue(cashFlows, rate);
+            
+            // Calculate weighted average life
+            let weightedSum = 0;
+            let totalPrincipal = 0;
+            
+            cashFlows.forEach(cf => {
+                weightedSum += cf.period * cf.totalPrincipal;
+                totalPrincipal += cf.totalPrincipal;
+            });
+            
+            const averageLife = weightedSum / totalPrincipal;
+            
+            // Calculate Macaulay duration (simplified)
+            let durationNum = 0;
+            let durationDenom = 0;
+            const annualRate = rate / 100;
+            
+            cashFlows.forEach(cf => {
+                const discountFactor = Math.pow(1 + annualRate, -cf.period);
+                durationNum += cf.period * cf.totalPayment * discountFactor;
+                durationDenom += cf.totalPayment * discountFactor;
+            });
+            
+            const duration = durationNum / durationDenom;
+            
+            // Calculate yield to maturity (simplified approximation)
+            const bondPrice = pv / poolSize * 100; // Price per $100 face value
+            const ytm = (couponRate + (100 - bondPrice) / averageLife) * 100 / bondPrice;
+            
+            return {
+                presentValue: pv,
+                averageLife: averageLife,
+                duration: duration,
+                bondPrice: bondPrice,
+                ytm: ytm
+            };
+        }
+        
+        // Generate PSA curve data
+        function generatePSACurveData() {
+            const months = Array.from({ length: 60 }, (_, i) => i + 1);
+            const psaLevels = [0, 50, 100, 150, 200];
+            
+            const datasets = psaLevels.map(level => {
+                return {
+                    label: `${level}% PSA`,
+                    data: months.map(month => calculatePSARate(month, level) * 100),
+                    borderWidth: level === psaSpeed ? 3 : 1,
+                    borderColor: level === psaSpeed ? 'rgba(93, 92, 222, 1)' : `rgba(${150 - level/10}, ${100 + level/2}, 221, 0.5)`,
+                    backgroundColor: 'transparent'
+                };
+            });
+            
+            return {
+                labels: months.map(m => m <= 12 ? m : m % 12 === 0 ? `Year ${m/12}` : ''),
+                datasets: datasets
+            };
+        }
+        
+        // Calculate all model outputs
+        function calculateAll() {
+            // Get current input values
+            poolSize = parseFloat(document.getElementById('pool-size').value);
+            mortgageTerm = parseInt(document.getElementById('mortgage-term').value);
+            couponRate = parseFloat(document.getElementById('coupon-rate').value);
+            marketRate = parseFloat(document.getElementById('market-rate').value);
+            psaSpeed = parseInt(document.getElementById('psa-speed').value);
+            
+            // Calculate mortgage pool cash flows
+            const mortgageCashFlows = calculateMortgagePoolCashFlows();
+            
+            // Calculate tranche cash flows
+            const trancheCashFlows = calculateTrancheCashFlows(mortgageCashFlows);
+            
+            // Calculate bond metrics
+            const metrics = calculateBondMetrics(mortgageCashFlows, marketRate);
+            
+            // Update summary metrics
+            document.getElementById('total-principal').textContent = formatCurrency(poolSize);
+            
+            let totalInterest = mortgageCashFlows.reduce((sum, cf) => sum + cf.interest, 0);
+            document.getElementById('total-interest').textContent = formatCurrency(totalInterest);
+            
+            document.getElementById('avg-life').textContent = metrics.averageLife.toFixed(1);
+            document.getElementById('duration').textContent = metrics.duration.toFixed(1);
+            document.getElementById('present-value').textContent = formatCurrency(metrics.presentValue);
+            
+            // Update valuation metrics
+            document.getElementById('bond-price').textContent = '$' + metrics.bondPrice.toFixed(2);
+            document.getElementById('ytm').textContent = metrics.ytm.toFixed(2) + '%';
+            
+            // Calculate convexity (simplified)
+            const priceUp = calculatePresentValue(mortgageCashFlows, marketRate + 1) / poolSize * 100;
+            const priceDown = calculatePresentValue(mortgageCashFlows, marketRate - 1) / poolSize * 100;
+            const convexity = (priceUp + priceDown - 2 * metrics.bondPrice) / metrics.bondPrice / Math.pow(0.01, 2);
+            document.getElementById('convexity').textContent = convexity.toFixed(2);
+            
+            return {
+                mortgageCashFlows,
+                trancheCashFlows,
+                metrics
+            };
+        }
+        
+        // =====================
+        // Visualization Functions
+        // =====================
+        
+        // Chart objects
+        let cashFlowChart = null;
+        let bondPriceChart = null;
+        let oasChart = null;
+        let psaCurveChart = null;
+        let cumulativePrepaymentChart = null;
+        let refinancingIncentiveChart = null;
+        let seasonalFactorsChart = null;
+        let trancheCashFlowChart = null;
+        
+        // Initialize and update charts
+        function updateCharts() {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const textColor = isDarkMode ? '#e5e7eb' : '#374151';
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            
+            // Common chart options
+            Chart.defaults.color = textColor;
+            Chart.defaults.borderColor = gridColor;
+            
+            const chartConfig = {
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: textColor,
+                            font: {
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? '#374151' : '#ffffff',
+                        titleColor: isDarkMode ? '#e5e7eb' : '#111827',
+                        bodyColor: isDarkMode ? '#e5e7eb' : '#374151',
+                        borderColor: isDarkMode ? '#4b5563' : '#e5e7eb',
+                        borderWidth: 1,
+                        titleFont: {
+                            family: "'Inter', sans-serif",
+                            weight: 600
+                        },
+                        bodyFont: {
+                            family: "'Inter', sans-serif"
+                        },
+                        padding: 12,
+                        boxPadding: 4
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: gridColor
+                        },
+                        ticks: {
+                            color: textColor,
+                            font: {
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: gridColor
+                        },
+                        ticks: {
+                            color: textColor,
+                            font: {
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // Calculate data for charts
+            const results = calculateAll();
+            const { mortgageCashFlows, trancheCashFlows, metrics } = results;
+            
+            // Update Cash Flow Chart
+            const cashFlowCtx = document.getElementById('cash-flow-chart').getContext('2d');
+            if (cashFlowChart) cashFlowChart.destroy();
+            
+            cashFlowChart = new Chart(cashFlowCtx, {
+                type: 'bar',
+                data: {
+                    labels: mortgageCashFlows.map(cf => `Year ${cf.period}`),
+                    datasets: [
+                        {
+                            label: 'Interest',
+                            data: mortgageCashFlows.map(cf => cf.interest),
+                            backgroundColor: 'rgba(93, 92, 222, 0.8)',
+                            borderColor: 'rgba(93, 92, 222, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Scheduled Principal',
+                            data: mortgageCashFlows.map(cf => cf.scheduledPrincipal),
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Prepayment',
+                            data: mortgageCashFlows.map(cf => cf.prepayment),
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    ...chartConfig,
+                    plugins: {
+                        ...chartConfig.plugins,
+                        title: {
+                            display: false,
+                            text: 'Mortgage Pool Cash Flows',
+                            color: textColor,
+                            font: {
+                                size: 16,
+                                weight: 'bold',
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ...chartConfig.scales.x
+                        },
+                        y: {
+                            stacked: true,
+                            ...chartConfig.scales.y,
+                            title: {
+                                display: true,
+                                text: 'Cash Flow ($)',
+                                color: textColor
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Bond Price vs Interest Rate chart
+            const bondPriceCtx = document.getElementById('bond-price-chart').getContext('2d');
+            if (bondPriceChart) bondPriceChart.destroy();
+            
+            // Generate interest rate scenarios
+            const interestRates = [];
+            const bondPrices = [];
+            for (let rate = 1; rate <= 10; rate += 0.5) {
+                interestRates.push(rate);
+                const pv = calculatePresentValue(mortgageCashFlows, rate);
+                bondPrices.push(pv / poolSize * 100); // Convert to price per $100 face value
+            }
+            
+            bondPriceChart = new Chart(bondPriceCtx, {
+                type: 'line',
+                data: {
+                    labels: interestRates,
+                    datasets: [{
+                        label: 'Bond Price',
+                        data: bondPrices,
+                        borderColor: 'rgba(93, 92, 222, 1)',
+                        backgroundColor: 'rgba(93, 92, 222, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true,
+                        pointBackgroundColor: 'rgba(93, 92, 222, 1)',
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    plugins: {
+                        ...chartConfig.plugins,
+                        tooltip: {
+                            ...chartConfig.plugins.tooltip,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Bond Price: $${context.raw.toFixed(2)} per $100 face value`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ...chartConfig.scales.x,
+                            title: {
+                                display: true,
+                                text: 'Interest Rate (%)',
+                                color: textColor
+                            }
+                        },
+                        y: {
+                            ...chartConfig.scales.y,
+                            title: {
+                                display: true,
+                                text: 'Bond Price ($)',
+                                color: textColor
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // OAS (Option-Adjusted Spread) Chart - simulated data
+            const oasCtx = document.getElementById('oas-chart').getContext('2d');
+            if (oasChart) oasChart.destroy();
+            
+            // Generate OAS data for different PSA speeds
+            const psaSpeeds = [0, 50, 100, 150, 200, 300];
+            const oasSpreads = []; // Simulated OAS values
+            
+            // In reality, this would be calculated with a complex model
+            // For demonstration, we'll use a simplified approximation
+            psaSpeeds.forEach(speed => {
+                // Higher PSA speeds typically have higher OAS due to increased prepayment risk
+                const baseOAS = 30; // basis points
+                const sensitivity = 0.2; // basis points per PSA
+                const riskPremium = speed * sensitivity;
+                oasSpreads.push(baseOAS + riskPremium);
+            });
+            
+            oasChart = new Chart(oasCtx, {
+                type: 'line',
+                data: {
+                    labels: psaSpeeds.map(speed => `${speed}% PSA`),
+                    datasets: [{
+                        label: 'OAS (basis points)',
+                        data: oasSpreads,
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true,
+                        pointBackgroundColor: 'rgba(79, 70, 229, 1)',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    scales: {
+                        y: {
+                            ...chartConfig.scales.y,
+                            title: {
+                                display: true,
+                                text: 'Spread (basis points)',
+                                color: textColor
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // PSA Curve Chart
+            const psaCurveCtx = document.getElementById('psa-curve-chart').getContext('2d');
+            if (psaCurveChart) psaCurveChart.destroy();
+            
+            const psaCurveData = generatePSACurveData();
+            
+            psaCurveChart = new Chart(psaCurveCtx, {
+                type: 'line',
+                data: psaCurveData,
+                options: {
+                    ...chartConfig,
+                    elements: {
+                        line: {
+                            tension: 0.2
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ...chartConfig.scales.x,
+                            title: {
+                                display: true,
+                                text: 'Month',
+                                color: textColor
+                            }
+                        },
+                        y: {
+                            ...chartConfig.scales.y,
+                            title: {
+                                display: true,
+                                text: 'CPR (%)',
+                                color: textColor
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Cumulative Prepayment Chart
+            const cumulativePrepaymentCtx = document.getElementById('cumulative-prepayment-chart').getContext('2d');
+            if (cumulativePrepaymentChart) cumulativePrepaymentChart.destroy();
+            
+            // Generate cumulative prepayment data
+            const psaLevels = [0, 50, 100, 200, 300];
+            const years = Array.from({ length: mortgageTerm }, (_, i) => i + 1);
+            
+            const cumulativeDatasets = psaLevels.map(level => {
+                // Calculate cumulative prepayment percentage for each PSA level
+                let remainingBalance = 100; // Start with 100% of pool
+                const cumulativeData = [];
+                
+                years.forEach(year => {
+                    // Simplified prepayment calculation for demo
+                    const avgPSARate = year <= 3 ? level * 0.03 : level * 0.06;
+                    const yearlyPrepay = remainingBalance * (avgPSARate / 100);
+                    remainingBalance -= yearlyPrepay;
+                    cumulativeData.push(100 - remainingBalance);
+                });
+                
+                return {
+                    label: `${level}% PSA`,
+                    data: cumulativeData,
+                    borderWidth: level === psaSpeed ? 3 : 1,
+                    borderColor: level === psaSpeed ? 'rgba(93, 92, 222, 1)' : `rgba(${150 - level/10}, ${100 + level/2}, 221, 0.5)`,
+                    backgroundColor: 'transparent'
+                };
+            });
+            
+            cumulativePrepaymentChart = new Chart(cumulativePrepaymentCtx, {
+                type: 'line',
+                data: {
+                    labels: years.map(year => `Year ${year}`),
+                    datasets: cumulativeDatasets
+                },
+                options: {
+                    ...chartConfig,
+                    elements: {
+                        line: {
+                            tension: 0.3
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ...chartConfig.scales.y,
+                            title: {
+                                display: true,
+                                text: 'Cumulative Prepayment (%)',
+                                color: textColor
+                            },
+                            max: 100
+                        }
+                    }
+                }
+            });
+            
+            // Refinancing Incentive Chart
+            const refinancingCtx = document.getElementById('refinancing-incentive-chart').getContext('2d');
+            if (refinancingIncentiveChart) refinancingIncentiveChart.destroy();
+            
+            // Simple model: prepayment multiplier based on rate differential
+            const rateDiffs = [-3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
+            const prepayMultipliers = [3, 2.8, 2.5, 2.1, 1.7, 1.3, 1, 0.7, 0.5, 0.4, 0.3];
+            
+            refinancingIncentiveChart = new Chart(refinancingCtx, {
+                type: 'line',
+                data: {
+                    labels: rateDiffs.map(diff => `${diff > 0 ? '+' : ''}${diff}%`),
+                    datasets: [{
+                        label: 'Prepayment Multiplier',
+                        data: prepayMultipliers,
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    scales: {
+                        x: {
+                            ...chartConfig.scales.x,
+                            title: {
+                                display: true,
+                                text: 'Market Rate - Mortgage Rate',
+                                color: textColor
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Seasonal Factors Chart
+            const seasonalCtx = document.getElementById('seasonal-factors-chart').getContext('2d');
+            if (seasonalFactorsChart) seasonalFactorsChart.destroy();
+            
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const seasonalFactors = [0.9, 0.85, 0.95, 1.05, 1.1, 1.15, 1.2, 1.15, 1.05, 0.95, 0.9, 0.85];
+            
+            seasonalFactorsChart = new Chart(seasonalCtx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Seasonal Multiplier',
+                        data: seasonalFactors,
+                        backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                        borderColor: 'rgba(245, 158, 11, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    ...chartConfig,
+                    scales: {
+                        y: {
+                            ...chartConfig.scales.y,
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Tranche Cash Flow Chart
+            const trancheCtx = document.getElementById('tranche-cash-flow-chart').getContext('2d');
+            if (trancheCashFlowChart) trancheCashFlowChart.destroy();
+            
+            // Create datasets for each tranche
+            const trancheLabels = mortgageCashFlows.map(cf => `Year ${cf.period}`);
+            
+            const trancheDatasets = [
+                {
+                    label: 'Tranche A',
+                    data: trancheCashFlows.A.map(cf => cf.totalPayment),
+                    backgroundColor: tranches.A.color,
+                    borderColor: tranches.A.color.replace('0.8', '1'),
+                    borderWidth: 1
+                },
+                {
+                    label: 'Tranche B',
+                    data: trancheCashFlows.B.map(cf => cf.totalPayment),
+                    backgroundColor: tranches.B.color,
+                    borderColor: tranches.B.color.replace('0.8', '1'),
+                    borderWidth: 1
+                },
+                {
+                    label: 'Tranche C',
+                    data: trancheCashFlows.C.map(cf => cf.totalPayment),
+                    backgroundColor: tranches.C.color,
+                    borderColor: tranches.C.color.replace('0.8', '1'),
+                    borderWidth: 1
+                },
+                {
+                    label: 'Tranche Z',
+                    data: trancheCashFlows.Z.map(cf => cf.totalPayment),
+                    backgroundColor: tranches.Z.color,
+                    borderColor: tranches.Z.color.replace('0.8', '1'),
+                    borderWidth: 1
+                }
+            ];
+            
+            trancheCashFlowChart = new Chart(trancheCtx, {
+                type: 'bar',
+                data: {
+                    labels: trancheLabels,
+                    datasets: trancheDatasets
+                },
+                options: {
+                    ...chartConfig,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ...chartConfig.scales.x
+                        },
+                        y: {
+                            stacked: true,
+                            ...chartConfig.scales.y,
+                            title: {
+                                display: true,
+                                text: 'Cash Flow ($)',
+                                color: textColor
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Draw MBS Structure Diagram
+            drawMBSStructure();
+            
+            // Draw Waterfall Diagram
+            drawWaterfallDiagram();
+        }
+        
+        // Update cash flow table
+        function updateTables() {
+            const mortgageCashFlows = calculateMortgagePoolCashFlows();
+            const tableBody = document.getElementById('cash-flow-table-body');
+            tableBody.innerHTML = '';
+            
+            mortgageCashFlows.forEach(cf => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td class="text-center">Year ${cf.period}</td>
+                    <td>${formatCurrency(cf.scheduledPrincipal)}</td>
+                    <td>${formatCurrency(cf.interest)}</td>
+                    <td>${formatCurrency(cf.scheduledPrincipal + cf.interest)}</td>
+                    <td>${formatCurrency(cf.prepayment)}</td>
+                    <td>${formatCurrency(cf.remainingBalance)}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Update tranche table with selected metrics
+            const trancheTable = document.getElementById('tranche-table-body');
+            trancheTable.innerHTML = '';
+            
+            const trancheResults = {};
+            const trancheCashFlows = calculateTrancheCashFlows(mortgageCashFlows);
+            
+            Object.keys(tranches).forEach(trancheName => {
+                const cashFlows = trancheCashFlows[trancheName];
+                const metrics = calculateSimplifiedTrancheMetrics(cashFlows, marketRate, tranches[trancheName].size);
+                trancheResults[trancheName] = metrics;
+                
+                const row = document.createElement('tr');
+                
+                // Highlight selected tranche
+                const isSelected = trancheName === selectedTranche;
+                const nameClass = isSelected ? 'text-center font-medium text-white bg-primary' : 'text-center font-medium text-primary dark:text-primary';
+                
+                row.innerHTML = `
+                    <td class="${nameClass}">${trancheName}</td>
+                    <td>${formatCurrency(tranches[trancheName].size)}</td>
+                    <td>${tranches[trancheName].coupon.toFixed(2)}%</td>
+                    <td>${metrics.averageLife.toFixed(1)} yrs</td>
+                    <td>${metrics.duration.toFixed(1)} yrs</td>
+                    <td>$${metrics.price.toFixed(2)}</td>
+                    <td>${metrics.yield.toFixed(2)}%</td>
+                `;
+                
+                trancheTable.appendChild(row);
+            });
+        }
+        
+        // Calculate tranche-specific metrics
+        function calculateSimplifiedTrancheMetrics(cashFlows, rate, trancheSize) {
+            // Simplified logic for demonstration
+            // In a real model, these would be calculated with more precision
+            const pv = cashFlows.reduce((sum, cf) => {
+                const discountFactor = Math.pow(1 + rate/100, -cf.period);
+                return sum + cf.totalPayment * discountFactor;
+            }, 0);
+            
+            // Weighted average life calculation
+            const weightedSum = cashFlows.reduce((sum, cf) => {
+                return sum + cf.period * cf.principal;
+            }, 0);
+            
+            const totalPrincipal = cashFlows.reduce((sum, cf) => sum + cf.principal, 0);
+            const averageLife = weightedSum / (totalPrincipal || 1); // Avoid division by zero
+            
+            // Simplified duration calculation
+            const durationNum = cashFlows.reduce((sum, cf) => {
+                const discountFactor = Math.pow(1 + rate/100, -cf.period);
+                return sum + cf.period * cf.totalPayment * discountFactor;
+            }, 0);
+            
+            const duration = durationNum / (pv || 1); // Avoid division by zero
+            
+            // Price per $100 face value
+            const price = pv / trancheSize * 100;
+            
+            // Yield approximation
+            const coupon = cashFlows[0] ? cashFlows[0].interest / trancheSize * 100 : 0;
+            const yield_ = (coupon + (100 - price) / averageLife) * 100 / price;
+            
+            return {
+                presentValue: pv,
+                averageLife: averageLife,
+                duration: duration,
+                price: price,
+                yield: yield_
+            };
+        }
+        
+        // Update tranche view based on selection
+        function updateTrancheView(tranche) {
+            selectedTranche = tranche;
+            updateTables();
+            
+            // Highlight selected tranche in waterfall diagram
+            drawWaterfallDiagram();
+        }
+        
+        // Draw MBS Structure diagram
+        function drawMBSStructure() {
+            const container = document.getElementById('mbs-structure');
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const textColor = isDarkMode ? '#e5e7eb' : '#374151';
+            const bgColor = isDarkMode ? '#1f2937' : '#ffffff';
+            const borderColor = isDarkMode ? '#4b5563' : '#e5e7eb';
+            
+            // SVG for the structure diagram
+            container.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Borrowers -->
+                    <rect x="50" y="30" width="120" height="60" rx="5" fill="${bgColor}" stroke="${borderColor}" stroke-width="2"/>
+                    <text x="110" y="65" text-anchor="middle" font-size="14" fill="${textColor}">대출자</text>
+                    
+                    <!-- Mortgage Pool -->
+                    <rect x="240" y="30" width="120" height="60" rx="5" fill="${bgColor}" stroke="${borderColor}" stroke-width="2"/>
+                    <text x="300" y="55" text-anchor="middle" font-size="14" fill="${textColor}">모기지</text>
+                    <text x="300" y="75" text-anchor="middle" font-size="14" fill="${textColor}">풀</text>
+                    
+                    <!-- SPV / Trust -->
+                    <rect x="430" y="30" width="120" height="60" rx="5" fill="${bgColor}" stroke="#5D5CDE" stroke-width="2"/>
+                    <text x="490" y="55" text-anchor="middle" font-size="14" fill="${textColor}">특수목적</text>
+                    <text x="490" y="75" text-anchor="middle" font-size="14" fill="${textColor}">기구/신탁</text>
+                    
+                    <!-- Tranche A -->
+                    <rect x="600" y="30" width="120" height="30" rx="5" fill="${tranches.A.color}" stroke="${borderColor}" stroke-width="1"/>
+                    <text x="660" y="50" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}">트랜치 A</text>
+                    
+                    <!-- Tranche B -->
+                    <rect x="600" y="70" width="120" height="30" rx="5" fill="${tranches.B.color}" stroke="${borderColor}" stroke-width="1"/>
+                    <text x="660" y="90" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}">트랜치 B</text>
+                    
+                    <!-- Tranche C -->
+                    <rect x="600" y="110" width="120" height="30" rx="5" fill="${tranches.C.color}" stroke="${borderColor}" stroke-width="1"/>
+                    <text x="660" y="130" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}">트랜치 C</text>
+                    
+                    <!-- Tranche Z -->
+                    <rect x="600" y="150" width="120" height="30" rx="5" fill="${tranches.Z.color}" stroke="${borderColor}" stroke-width="1"/>
+                    <text x="660" y="170" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}">트랜치 Z (누적)</text>
+                    
+                    <!-- Arrows -->
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="${textColor}"/>
+                        </marker>
+                    </defs>
+                    
+                    <!-- Borrowers to Mortgage Pool -->
+                    <line x1="170" y1="60" x2="240" y2="60" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <text x="205" y="50" text-anchor="middle" font-size="12" fill="${textColor}">상환금</text>
+                    
+                    <!-- Mortgage Pool to SPV -->
+                    <line x1="360" y1="60" x2="430" y2="60" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <text x="395" y="50" text-anchor="middle" font-size="12" fill="${textColor}">현금흐름</text>
+                    
+                    <!-- SPV to Tranches -->
+                    <line x1="550" y1="60" x2="590" y2="60" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <line x1="550" y1="60" x2="590" y2="85" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <line x1="550" y1="60" x2="590" y2="125" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <line x1="550" y1="60" x2="590" y2="165" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- Waterfall Structure -->
+                    <rect x="240" y="200" width="320" height="80" rx="5" fill="${bgColor}" stroke="#5D5CDE" stroke-width="2"/>
+                    <text x="400" y="225" text-anchor="middle" font-size="14" font-weight="bold" fill="${textColor}">현금흐름 워터폴 구조</text>
+                    <text x="400" y="255" text-anchor="middle" font-size="13" fill="${textColor}">트랜치 A → 트랜치 B → 트랜치 C → 트랜치 Z</text>
+                    <text x="400" y="275" text-anchor="middle" font-size="13" fill="${textColor}">(순차적 지급 구조)</text>
+                </svg>
+            `;
+        }
+        
+        // Draw Waterfall diagram
+        function drawWaterfallDiagram() {
+            const container = document.getElementById('waterfall-diagram');
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const textColor = isDarkMode ? '#e5e7eb' : '#374151';
+            const bgColor = isDarkMode ? '#1f2937' : '#ffffff';
+            const borderColor = isDarkMode ? '#4b5563' : '#e5e7eb';
+            
+            // Highlight selected tranche
+            const trancheColors = {
+                A: selectedTranche === 'A' ? 'rgba(93, 92, 222, 1.0)' : tranches.A.color,
+                B: selectedTranche === 'B' ? 'rgba(79, 70, 229, 1.0)' : tranches.B.color,
+                C: selectedTranche === 'C' ? 'rgba(67, 56, 202, 1.0)' : tranches.C.color,
+                Z: selectedTranche === 'Z' ? 'rgba(55, 48, 163, 1.0)' : tranches.Z.color
+            };
+            
+            // SVG for the waterfall diagram
+            container.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 600 380" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Header -->
+                    <text x="300" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="${textColor}">CMO 트랜치 워터폴 구조</text>
+                    
+                    <!-- Cash Flow Input -->
+                    <rect x="250" y="50" width="100" height="40" rx="5" fill="${bgColor}" stroke="#5D5CDE" stroke-width="2"/>
+                    <text x="300" y="75" text-anchor="middle" font-size="14" fill="${textColor}">현금흐름</text>
+                    
+                    <!-- Vertical flow line -->
+                    <line x1="300" y1="90" x2="300" y2="110" stroke="${textColor}" stroke-width="1.5" stroke-dasharray="4"/>
+                    
+                    <!-- Tranche A (highlight if selected) -->
+                    <rect x="230" y="110" width="140" height="40" rx="5" fill="${trancheColors.A}" stroke="${borderColor}" stroke-width="${selectedTranche === 'A' ? 2 : 1}"/>
+                    <text x="300" y="135" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}" font-weight="bold">트랜치 A</text>
+                    
+                    <!-- Flow line -->
+                    <line x1="300" y1="150" x2="300" y2="170" stroke="${textColor}" stroke-width="1.5" stroke-dasharray="4"/>
+                    <text x="335" y="165" text-anchor="start" font-size="12" fill="${textColor}">A 상환 완료시</text>
+                    
+                    <!-- Tranche B -->
+                    <rect x="230" y="170" width="140" height="40" rx="5" fill="${trancheColors.B}" stroke="${borderColor}" stroke-width="${selectedTranche === 'B' ? 2 : 1}"/>
+                    <text x="300" y="195" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}" font-weight="bold">트랜치 B</text>
+                    
+                    <!-- Flow line -->
+                    <line x1="300" y1="210" x2="300" y2="230" stroke="${textColor}" stroke-width="1.5" stroke-dasharray="4"/>
+                    <text x="335" y="225" text-anchor="start" font-size="12" fill="${textColor}">B 상환 완료시</text>
+                    
+                    <!-- Tranche C -->
+                    <rect x="230" y="230" width="140" height="40" rx="5" fill="${trancheColors.C}" stroke="${borderColor}" stroke-width="${selectedTranche === 'C' ? 2 : 1}"/>
+                    <text x="300" y="255" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}" font-weight="bold">트랜치 C</text>
+                    
+                    <!-- Flow line -->
+                    <line x1="300" y1="270" x2="300" y2="290" stroke="${textColor}" stroke-width="1.5" stroke-dasharray="4"/>
+                    <text x="335" y="285" text-anchor="start" font-size="12" fill="${textColor}">C 상환 완료시</text>
+                    
+                    <!-- Tranche Z (now shown in full) -->
+                    <rect x="230" y="290" width="140" height="40" rx="5" fill="${trancheColors.Z}" stroke="${borderColor}" stroke-width="${selectedTranche === 'Z' ? 2 : 1}"/>
+                    <text x="300" y="315" text-anchor="middle" font-size="14" fill="${isDarkMode ? 'white' : 'white'}" font-weight="bold">트랜치 Z</text>
+                    
+                    <!-- Accrual note for Z tranche - moved to better visibility -->
+                    <rect x="420" y="240" width="120" height="70" rx="5" fill="rgba(100, 100, 100, 0.15)" stroke="${borderColor}" stroke-width="1"/>
+                    <text x="480" y="265" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">Z 트랜치는 이자를</text>
+                    <text x="480" y="285" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">A, B, C가 상환될</text>
+                    <text x="480" y="305" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">때까지 누적</text>
+                    <line x1="370" y1="295" x2="420" y2="280" stroke="${textColor}" stroke-width="1.5" stroke-dasharray="2"/>
+                    
+                    <!-- Risk/Yield relationship -->
+                    <text x="100" y="135" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">최저 위험</text>
+                    <text x="100" y="150" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">최저 수익률</text>
+                    
+                    <text x="100" y="315" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">최고 위험</text>
+                    <text x="100" y="330" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">최고 수익률</text>
+                    
+                    <line x1="120" y1="145" x2="220" y2="145" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <line x1="120" y1="315" x2="220" y2="315" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    
+                    <!-- Time/Duration relationship -->
+                    <line x1="410" y1="130" x2="520" y2="130" stroke="${textColor}" stroke-width="1.5"/>
+                    <text x="465" y="120" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">짧은 듀레이션</text>
+                    
+                    <line x1="410" y1="200" x2="520" y2="200" stroke="${textColor}" stroke-width="1.5"/>
+                    <text x1="465" y="190" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">중간 듀레이션</text>
+                    
+                    <line x1="410" y1="315" x2="520" y2="315" stroke="${textColor}" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+                    <text x="465" y="350" text-anchor="middle" font-size="12" fill="${textColor}" font-weight="bold">긴 듀레이션</text>
+                    
+                    <!-- Explictly add a description of waterfall structure below -->
+                    <text x="300" y="370" text-anchor="middle" font-size="12" fill="${textColor}"> </text>
+                </svg>
+            `;
+        }
+        
+        // Initialize dashboard
+        window.addEventListener('DOMContentLoaded', function() {
+            // Calculate initial values
+            calculateAll();
+            
+            // Initialize charts
+            updateCharts();
+            
+            // Initialize tables
+            updateTables();
+        });
+    </script>
+</body>
+</html>
